@@ -24,6 +24,16 @@ const obj2 = {
 }
 `;
 
+const source4 = `
+const obj = {
+  code: 100,
+  message: "network error"
+}
+if (obj.code === 100) {
+  // ...
+}
+`;
+
 const defineInterface = {
   "540ed81a49e41e6c3afa82f0f05f8576b730cc1e": {
     networkAccessError: {
@@ -38,6 +48,56 @@ const defineInterface = {
     },
   },
 } as { [index: string]: any };
+
+// 先管理單一個pattern，生出一個const object介面，然後提供引用的函數
+class referenceManager {
+  generatedObjName: string;
+  patternHash: string;
+  constructor(patternHash: string, generatedObjName: string) {
+    this.generatedObjName = generatedObjName;
+    this.patternHash = patternHash;
+  }
+
+  generatedReferenceConstObj(defineInterface: { [index: string]: any }) {
+    ts.createVariableStatement(
+      [ts.createModifier(ts.SyntaxKind.ConstKeyword)],
+      ts.createVariableDeclarationList(
+        [
+          ts.createVariableDeclaration(
+            ts.createIdentifier("testVar"),
+            ts.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+            ts.createStringLiteral("test")
+          ),
+        ],
+        ts.NodeFlags.Const
+      )
+    );
+  }
+
+  makeReferenceConstObj(
+    defineInterface: {
+      [index: string]: any;
+    },
+    objLiteral: Map<string, any>
+  ): ts.PropertyAccessExpression {
+    // 目前先寫死用code判斷引用哪個東東
+    let targetCode = objLiteral.get("code");
+    let candidates = defineInterface[this.patternHash] as {
+      [index: string]: any;
+    };
+    let matchObj = Object.entries(candidates).find(
+      (candidate) => candidate[1].oriCode === targetCode
+    );
+    console.log("matchObj : ", matchObj);
+    if (!matchObj) throw Error("no match");
+    return ts.createPropertyAccess(
+      ts.createIdentifier(this.generatedObjName),
+      ts.createIdentifier(matchObj[0])
+    );
+    // return ts.createCall(ts.createIdentifier("foo"), undefined, undefined);
+    // return ts.createObjectLiteral();
+  }
+}
 
 function numberTransformer<T extends ts.Node>(): ts.TransformerFactory<T> {
   return (context) => {
@@ -169,30 +229,29 @@ function objRemappingTransformer<T extends ts.Node>(): ts.TransformerFactory<
           }
         );
         if (candidate) {
-          console.log("candidate : ", candidate);
-          objLiteral.set(oriKey, candidate[1][oriKey]);
-          // 建立新的object literal
-          const propertyAssignments: ts.PropertyAssignment[] = [];
-          objLiteral.forEach((value, key) => {
-            propertyAssignments.push(
-              ts.createPropertyAssignment(key, ts.createLiteral(value))
-            );
-          });
-          return ts.createObjectLiteral(propertyAssignments);
+          // 在這裡可以有兩種想做的事情，一個是把code換掉
+          const manager = new referenceManager(
+            "540ed81a49e41e6c3afa82f0f05f8576b730cc1e",
+            "ErrorType"
+          );
+
+          console.log(
+            "aaaaaaaa : ",
+            manager.makeReferenceConstObj(defineInterface, objLiteral)
+          );
+          return manager.makeReferenceConstObj(defineInterface, objLiteral);
+
+          // console.log("candidate : ", candidate);
+          // objLiteral.set(oriKey, candidate[1][oriKey]);
+          // // 建立新的object literal
+          // const propertyAssignments: ts.PropertyAssignment[] = [];
+          // objLiteral.forEach((value, key) => {
+          //   propertyAssignments.push(
+          //     ts.createPropertyAssignment(key, ts.createLiteral(value))
+          //   );
+          // });
+          // return ts.createObjectLiteral(propertyAssignments);
         }
-
-        // Array.from(patternCandidates).forEach((candidate: any) => {
-        //   console.log("candidate : ", candidate);
-        //   if (candidate[referenceKey] === objLiteral.get(key)) {
-        //     // 做轉換
-        //     const propertyAssignments = [];
-        //     console.log("Array.from(candidate) : ", Array.from(candidate));
-        //   }
-        // });
-
-        // return ts.createObjectLiteral([
-        //   ts.createPropertyAssignment("test", ts.createLiteral("test")),
-        // ]);
       }
       return ts.visitEachChild(node, (child) => visit(child), context);
     };
@@ -206,6 +265,7 @@ let result = ts.transpileModule(source3, {
     before: [literalObjPatternCollector(), objRemappingTransformer()],
   },
 });
+const printer: ts.Printer = ts.createPrinter();
 console.log("===result code===\n", result.outputText);
 console.log("patterns : ", patterns);
 ``;
