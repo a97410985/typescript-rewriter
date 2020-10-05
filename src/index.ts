@@ -49,7 +49,7 @@ const defineInterface = {
   },
 } as { [index: string]: any };
 
-// 先管理單一個pattern，生出一個const object介面，然後提供引用的函數
+// 先管理單一個pattern，生出一個const object介面，然後提供引用常數物件的函數
 class referenceManager {
   generatedObjName: string;
   patternHash: string;
@@ -127,9 +127,9 @@ function sortKeys(obj: Map<string, string | null>) {
 }
 let patterns = {} as { [index: string]: Map<string, string | null> };
 
-function literalObjPatternCollector<T extends ts.Node>(): ts.TransformerFactory<
-  T
-> {
+export function literalObjPatternCollector<
+  T extends ts.Node
+>(): ts.TransformerFactory<T> {
   return (context) => {
     const visit: ts.Visitor = (node) => {
       if (ts.isObjectLiteralExpression(node)) {
@@ -170,9 +170,9 @@ function literalObjPatternCollector<T extends ts.Node>(): ts.TransformerFactory<
   };
 }
 
-function objRemappingTransformer<T extends ts.Node>(): ts.TransformerFactory<
-  T
-> {
+export function objRemappingTransformer<
+  T extends ts.Node
+>(): ts.TransformerFactory<T> {
   return (context) => {
     const visit: ts.Visitor = (node) => {
       if (ts.isObjectLiteralExpression(node)) {
