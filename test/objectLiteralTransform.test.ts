@@ -1,7 +1,4 @@
-import {
-  literalObjPatternCollector,
-  objRemappingTransformer,
-} from "../src/index";
+import { ObjectLiteralTransformer } from "../src/index";
 import ts from "typescript";
 
 test("test object literal replacement to const object reference", () => {
@@ -15,10 +12,30 @@ const obj2 = {
   code: 200
 }
 `;
+  const passDefineInterface = {
+    "540ed81a49e41e6c3afa82f0f05f8576b730cc1e": {
+      networkAccessError: {
+        oriCode: 100,
+        code: 8901,
+        message: "network access error",
+      },
+      loginError: {
+        oriCode: 200,
+        code: 8902,
+        message: "account login error",
+      },
+    },
+  } as { [index: string]: any };
+  const objectLiteralTransformer = new ObjectLiteralTransformer(
+    passDefineInterface
+  );
   let result = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
     transformers: {
-      before: [literalObjPatternCollector(), objRemappingTransformer()],
+      before: [
+        objectLiteralTransformer.literalObjPatternCollector(),
+        objectLiteralTransformer.objRemappingTransformer(),
+      ],
     },
   });
   const expectResult = `var obj = ErrorType.networkAccessError;
