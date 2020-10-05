@@ -62,23 +62,29 @@ function sortKeys(obj: Map<string, string | null>) {
 }
 
 export class ObjectLiteralTransformer {
-  patterns = {} as { [index: string]: Map<string, string | null> };
+  patterns = {} as { [index: string]: Map<string, string | null> }; // {"obj-hash": Map<name, type>}
   defineInterface: { [index: string]: any }; // 用來作為轉換的定義，會以ori前綴的作為轉換的基準
 
-  constructor(defineInterface: { [index: string]: any }) {
-    this.defineInterface = defineInterface;
+  constructor(defineInterface?: { [index: string]: any }) {
+    if (defineInterface) this.defineInterface = defineInterface;
   }
 
   // 先管理單一個pattern，生出一個const object介面，然後提供引用常數物件的函數
   referenceManager = class {
     generatedObjName: string;
     patternHash: string;
-    constructor(patternHash: string, generatedObjName: string) {
+    defineInterface: { [index: string]: any };
+    constructor(
+      patternHash: string,
+      generatedObjName: string,
+      defineInterface: { [index: string]: any }
+    ) {
       this.generatedObjName = generatedObjName;
       this.patternHash = patternHash;
+      this.defineInterface = defineInterface;
     }
 
-    generatedReferenceConstObj(defineInterface: { [index: string]: any }) {
+    generatedReferenceConstObj() {
       ts.createVariableStatement(
         [ts.createModifier(ts.SyntaxKind.ConstKeyword)],
         ts.createVariableDeclarationList(
@@ -95,14 +101,11 @@ export class ObjectLiteralTransformer {
     }
 
     makeReferenceConstObj(
-      defineInterface: {
-        [index: string]: any;
-      },
       objLiteral: Map<string, any>
     ): ts.PropertyAccessExpression {
       // 目前先寫死用code判斷引用哪個東東
       let targetCode = objLiteral.get("code");
-      let candidates = defineInterface[this.patternHash] as {
+      let candidates = this.defineInterface[this.patternHash] as {
         [index: string]: any;
       };
       let matchObj = Object.entries(candidates).find(
@@ -118,6 +121,26 @@ export class ObjectLiteralTransformer {
       // return ts.createObjectLiteral();
     }
   };
+
+  convertMapsToObjects(mapInstance) {
+    const obj = {};
+    for (let prop of Array.from(mapInstance)) {
+      obj[prop[0]] = prop[1];
+    }
+    return obj;
+  }
+
+  getPatternInterface(): string {
+    //  {"obj-hash": Map<name, type>}
+    const allPattern = [];
+    Object.entries(this.patterns).forEach((pattern) => {
+      allPattern.push({
+        "obj-hash": pattern[0],
+        "pattern-shape": this.convertMapsToObjects(pattern[1]),
+      });
+    });
+    return JSON.stringify(allPattern, null);
+  }
 
   literalObjPatternCollector<T extends ts.Node>(): ts.TransformerFactory<T> {
     return (context) => {
@@ -160,6 +183,9 @@ export class ObjectLiteralTransformer {
     };
   }
   objRemappingTransformer<T extends ts.Node>(): ts.TransformerFactory<T> {
+    if (!this.defineInterface) {
+      throw Error("no pass defineInterface");
+    }
     return (context) => {
       const visit: ts.Visitor = (node) => {
         if (ts.isObjectLiteralExpression(node)) {
@@ -218,17 +244,15 @@ export class ObjectLiteralTransformer {
             // 在這裡可以有兩種想做的事情，一個是把code換掉
             const manager = new this.referenceManager(
               "540ed81a49e41e6c3afa82f0f05f8576b730cc1e",
-              "ErrorType"
+              "ErrorType",
+              this.defineInterface
             );
 
             console.log(
               "aaaaaaaa : ",
-              manager.makeReferenceConstObj(this.defineInterface, objLiteral)
+              manager.makeReferenceConstObj(objLiteral)
             );
-            return manager.makeReferenceConstObj(
-              this.defineInterface,
-              objLiteral
-            );
+            return manager.makeReferenceConstObj(objLiteral);
 
             // console.log("candidate : ", candidate);
             // objLiteral.set(oriKey, candidate[1][oriKey]);
