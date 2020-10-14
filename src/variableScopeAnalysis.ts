@@ -29,7 +29,7 @@ const transformerForNumericLiteral = <T extends ts.Node>(
 };
 
 class RenameManager {
-  variableRefCollections = new Map<string, ts.Identifier[]>();
+  variableRefCollections = new Map<ts.Identifier, string>(); // key為參考變數的node物；value為宣告變數的位置(ts.TextRange的stringify)
   source: ts.SourceFile | undefined;
   renameMaps = new Map<string, string>(); // key為要重新命名的identifier的宣告位置(ts.TextRange的stringify)，value為新名稱
 
@@ -72,19 +72,10 @@ class RenameManager {
                 pos: declNode.pos,
                 end: declNode.end,
               };
-              if (
-                !this.variableRefCollections.has(JSON.stringify(declTextRange))
-              ) {
-                this.variableRefCollections.set(
-                  JSON.stringify(declTextRange),
-                  []
-                );
-              } else {
-                const existRef = this.variableRefCollections.get(
-                  JSON.stringify(declTextRange)
-                );
-                if (existRef) existRef.push(node);
-              }
+              this.variableRefCollections.set(
+                node,
+                JSON.stringify(declTextRange)
+              );
             }
           }
         }
@@ -102,34 +93,13 @@ class RenameManager {
     return (rootNode: T) => {
       function visit(node: ts.Node): ts.Node {
         if (ts.isIdentifier(node)) {
-          const curNodeTextRange: ts.TextRange = {
-            pos: node.pos,
-            end: node.end,
-          };
-          const rangeText = JSON.stringify(curNodeTextRange);
-
-          if (obj.renameMaps.has(rangeText)) {
-            // 自己宣告本身重新命名
-            const newNode = ts.createIdentifier(
-              obj.renameMaps.get(rangeText) || node.text
-            );
-            return newNode;
-          } else {
-            // 參考宣告的變數重新命名
-            const symbol = checker.getSymbolAtLocation(node);
-            if (symbol) {
-              const decls = obj.getUserDefinedDecls(symbol);
-              if (decls.length > 0) {
-                const declRange = JSON.stringify({
-                  pos: decls[0].pos,
-                  end: decls[0].end,
-                });
-                if (obj.renameMaps.has(declRange)) {
-                  const newNode = ts.createIdentifier(
-                    obj.renameMaps.get(declRange) || node.text
-                  );
-                  return newNode;
-                }
+          if (obj.variableRefCollections.has(node)) {
+            const referencePos = obj.variableRefCollections.get(node);
+            if (referencePos) {
+              const name = obj.renameMaps.get(referencePos);
+              if (name) {
+                const newNode = ts.createIdentifier(name);
+                return newNode;
               }
             }
           }
