@@ -1,29 +1,17 @@
 {
+  "name": "ts-compiler-api-examples",
+  "private": true,
   "scripts": {
-    "start": "tsc && node ./out/index.js",
-    "test": "jest"
-  },
-  "jest": {
-    "transform": {
-      "^.+\\.tsx?$": "<rootDir>/node_modules/ts-jest/preprocessor.js"
-    },
-    "testRegex": "(/__tests__/.*|\\.(test|spec))\\.(ts|tsx|js)$",
-    "moduleFileExtensions": [
-      "ts",
-      "tsx",
-      "js",
-      "json"
-    ]
-  },
-  "author": "xinghzhiJiang",
-  "devDependencies": {
-    "@types/jest": "^19.2.3",
-    "jest": "^19.0.2",
-    "ts-jest": "^19.0.14",
-    "typescript": "^2.9.2"
+    "start": "ts-node src/variableScopeAnalysis",
+    "start-1": "ts-node src/1-read-ast",
+    "start-2": "ts-node src/2-print-code",
+    "start-4": "ts-node src/4-read-type-info"
   },
   "dependencies": {
-    "@types/typescript": "^2.0.0",
-    "object-hash": "^2.0.3"
+    "typescript": "^2.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^9.4.6",
+    "ts-node": "^4.1.0"
   }
 }
