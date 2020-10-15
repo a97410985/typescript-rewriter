@@ -1,0 +1,105 @@
+import * as ts from "typescript";
+import hash from "object-hash";
+
+function sortKeys(obj: Map<string, string | null>) {
+  let sortedKeys = Array.from(obj.keys()).sort((key1, key2) => {
+    if (key1 < key2) return -1;
+    else if (key1 > key2) return +1;
+    return 0;
+  });
+
+  const temp = new Map<string, string | null>();
+  sortedKeys.forEach((key) => {
+    const oriValue = obj.get(key);
+    if (oriValue) temp.set(key, oriValue);
+  });
+  return temp;
+}
+
+export class ObjectLiteralTransformer {
+  patterns = {} as { [index: string]: Map<string, string | null> }; // {"obj-hash": Map<name, type>}
+  defineInterface: { [index: string]: any } = {}; // 用來作為轉換的定義，會以ori前綴的作為轉換的基準
+
+  // 程式的來源與相關ts工具
+  source: ts.SourceFile | undefined;
+  program: ts.Program | undefined;
+  checker: ts.TypeChecker | undefined;
+
+  constructor(
+    sourceFilePath: string,
+    defineInterface?: { [index: string]: any }
+  ) {
+    if (defineInterface) this.defineInterface = defineInterface;
+
+    this.program = ts.createProgram([sourceFilePath], {});
+    this.checker = this.program.getTypeChecker();
+    this.source = this.program.getSourceFile(sourceFilePath);
+    if (!this.checker) throw "no checker";
+    if (!this.source) throw "no source file";
+  }
+
+  convertMapsToObjects(mapInstance: Map<string, string | null>) {
+    const obj: { [key: string]: string | null } = {};
+    for (let prop of Array.from(mapInstance)) {
+      const key = prop[0];
+      obj[key] = prop[1];
+    }
+    return obj;
+  }
+
+  getPatternInterface(): string {
+    // this.pattern {"obj-hash": Map<name, type>}
+    const allPattern: {
+      "obj-hash": string;
+      "pattern-shape": { [key: string]: string | null };
+    }[] = [];
+    Object.entries(this.patterns).forEach((pattern) => {
+      allPattern.push({
+        "obj-hash": pattern[0],
+        "pattern-shape": this.convertMapsToObjects(pattern[1]),
+      });
+    });
+    return JSON.stringify(allPattern, null);
+  }
+
+  literalObjPatternCollector<T extends ts.Node>(): ts.TransformerFactory<T> {
+    return (context) => {
+      const visit: ts.Visitor = (node) => {
+        if (ts.isObjectLiteralExpression(node)) {
+          let pattern = new Map<string, string | null>();
+
+          ts.forEachChild(node, (child) => {
+            if (ts.isObjectLiteralElement(child)) {
+              // node may is PropertyAssignment
+              let id = "";
+              ts.forEachChild(child, (dchild) => {
+                if (ts.isIdentifier(dchild)) {
+                  id = dchild.text;
+                  pattern.set(id, null);
+                } else {
+                  if (ts.isNumericLiteral(dchild)) {
+                    pattern.set(id, "number");
+                  } else if (ts.isStringLiteral(dchild)) {
+                    pattern.set(id, "string");
+                  }
+                }
+              });
+            }
+          });
+          // 由於擁有相同的property但property順序不同的物件會產生不同的雜湊值，所以使用hash來判斷物件屬性相異與否會有問題
+          // 產生一個新的物件，會按照key排序
+          // TODO: 目前如果是多層嵌套的這樣的做法還是會有問題
+          let sortedPattern = sortKeys(pattern);
+          const hashValue = hash(sortedPattern);
+          if (!this.patterns[hashValue]) {
+            this.patterns[hashValue] = sortedPattern;
+          }
+        }
+
+        return ts.visitEachChild(node, (child) => visit(child), context);
+      };
+
+      return (node) => ts.visitNode(node, visit);
+    };
+  }
+}

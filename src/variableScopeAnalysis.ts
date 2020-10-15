@@ -17,8 +17,9 @@ const transformerForNumericLiteral = <T extends ts.Node>(
 
 export class RenameManager {
   variableRefCollections = new Map<ts.Identifier, string>(); // key為參考變數的node物；value為宣告變數的位置(ts.TextRange的stringify)
-  source: ts.SourceFile | undefined;
   renameMaps = new Map<string, string>(); // key為要重新命名的identifier的宣告位置(ts.TextRange的stringify)，value為新名稱
+
+  source: ts.SourceFile | undefined;
   program: ts.Program | undefined;
   checker: ts.TypeChecker | undefined;
   constructor(
