@@ -2,12 +2,7 @@
   "name": "ts-compiler-api-examples",
   "private": true,
   "scripts": {
-    "play": "ts-node src/play",
-    "play-2": "ts-node src/play-2",
     "start": "ts-node src/variableScopeAnalysis",
-    "start-1": "ts-node src/1-read-ast",
-    "start-2": "ts-node src/2-print-code",
-    "start-4": "ts-node src/4-read-type-info",
     "test": "jest"
   },
   "jest": {
