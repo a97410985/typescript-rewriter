@@ -113,20 +113,25 @@ export class ObjectLiteralTransformer {
       Object.entries(obj[1].defines).forEach((props) => {
         const levelTwoPropsAssignments: ts.PropertyAssignment[] = [];
         Object.entries(props[1]).forEach((prop) => {
-          let valueLiteral;
-          if (typeof prop[1] === "string") {
-            valueLiteral = ts.createStringLiteral(prop[1]);
-          } else if (typeof prop[1] === "number") {
-            valueLiteral = ts.createNumericLiteral(prop[1].toString());
-          } else {
-            throw "cannot generate property's value literal";
+          if (
+            !prop[0].includes("ori") &&
+            !(prop[0].charAt(3) === prop[0].charAt(3).toLocaleUpperCase())
+          ) {
+            let valueLiteral;
+            if (typeof prop[1] === "string") {
+              valueLiteral = ts.createStringLiteral(prop[1]);
+            } else if (typeof prop[1] === "number") {
+              valueLiteral = ts.createNumericLiteral(prop[1].toString());
+            } else {
+              throw "cannot generate property's value literal";
+            }
+            levelTwoPropsAssignments.push(
+              ts.createPropertyAssignment(
+                ts.createIdentifier(prop[0]),
+                valueLiteral
+              )
+            );
           }
-          levelTwoPropsAssignments.push(
-            ts.createPropertyAssignment(
-              ts.createIdentifier(prop[0]),
-              valueLiteral
-            )
-          );
         });
         propertyAssignments.push(
           ts.createPropertyAssignment(
